@@ -17,8 +17,11 @@ def extract_blog_post_urls(main_page_content):
 
 def extract_post_data(post_page_content):
     soup = BeautifulSoup(post_page_content, 'html.parser')
-    title = soup.find('h2', class_='blog__title').text.strip()
-    transcript = soup.find('div', class_='blog-entry-content').text.strip()
+    title = soup.find('h1', class_='blog__title').text.strip()
+    # key_points = soup.find_next_sibling('h2[text="What You\'ll Learn from this Episode:"]').find_all('li').text.strip()
+    episode_transcript_item = soup.find(lambda tag: tag.name == 'h2' and "Full Episode Transcript:" in tag.text)
+    transcript_div = episode_transcript_item.find_next('div')
+    transcript = [paragraph.text.strip() for paragraph in transcript_div.find_all('p')]
     return title, transcript
 
 def main():
@@ -31,7 +34,7 @@ def main():
             post_page_content = fetch_url_content(url)
             if post_page_content:
                 title, transcript = extract_post_data(post_page_content)
-                print(f"Title: {title}\nTranscript: {transcript}\n")
+                print(f"Title: {title}\nTranscript: {transcript}")
     else:
         print("Failed to fetch main page content")
 
