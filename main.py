@@ -1,6 +1,8 @@
 import requests
+from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 
+main_page_url = "https://sarabrewer.com/"
 
 def fetch_url_content(url):
     response = requests.get(url)
@@ -11,7 +13,7 @@ def fetch_url_content(url):
 def extract_blog_post_urls(main_page_content):
     soup = BeautifulSoup(main_page_content, 'html.parser')
     blog_posts = soup.select('h2.blog__title a')
-    return [post['href'] for post in blog_posts]
+    return [urljoin(main_page_url, post['href']) for post in blog_posts]
 
 def extract_post_data(post_page_content):
     soup = BeautifulSoup(post_page_content, 'html.parser')
@@ -20,8 +22,7 @@ def extract_post_data(post_page_content):
     return title, transcript
 
 def main():
-    main_page_url = "https://sarabrewer.com/blog"
-    main_page_content = fetch_url_content(main_page_url)
+    main_page_content = fetch_url_content(urljoin(main_page_url, 'blog'))
     
     if main_page_content:
         blog_post_urls = extract_blog_post_urls(main_page_content)
