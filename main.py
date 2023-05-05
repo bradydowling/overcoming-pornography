@@ -1,3 +1,5 @@
+import requests_cache
+requests_cache.install_cache('my_cache')
 import requests
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup
