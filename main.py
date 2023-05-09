@@ -3,7 +3,9 @@ requests_cache.install_cache('my_cache')
 import requests
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup
+from collections import Counter
 
+all_paragraphs = []
 main_page_url = "https://sarabrewer.com/"
 
 def fetch_url_content(url):
@@ -26,6 +28,13 @@ def extract_post_data(post_page_content):
     transcript = [paragraph.text.strip() for paragraph in transcript_div.find_all('p')]
     return title, transcript
 
+def get_repeats(items):
+    repeats = []
+    for item in items:
+        if item[1] > 1 and ": " not in item[0]:
+            repeats.append(item)
+    return repeats
+
 def main():
     main_page_content = fetch_url_content(urljoin(main_page_url, 'blog'))
     
@@ -36,9 +45,12 @@ def main():
             post_page_content = fetch_url_content(url)
             if post_page_content:
                 title, transcript = extract_post_data(post_page_content)
+                all_paragraphs.extend(transcript)
                 print(f"Title: {title}\nTranscript: {transcript}")
     else:
         print("Failed to fetch main page content")
+    paragraph_counter = Counter(all_paragraphs)
+    top_sayings = get_repeats(paragraph_counter.most_common(30))
 
 if __name__ == "__main__":
     main()
