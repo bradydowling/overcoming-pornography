@@ -4,6 +4,7 @@ import requests
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 from collections import Counter
+import json
 
 all_paragraphs = []
 main_page_url = "https://sarabrewer.com/"
@@ -25,8 +26,9 @@ def extract_post_data(post_page_content):
     # key_points = soup.find_next_sibling('h2[text="What You\'ll Learn from this Episode:"]').find_all('li').text.strip()
     episode_transcript_item = soup.find(lambda tag: tag.name == 'h2' and "Full Episode Transcript:" in tag.text)
     transcript_div = episode_transcript_item.find_next('div')
-    transcript = [paragraph.text.strip() for paragraph in transcript_div.find_all('p')]
-    return title, transcript
+    transcript_array = [paragraph.text.strip() for paragraph in transcript_div.find_all('p')]
+    raw_transcript = '\n\n'.join(transcript_array)
+    return title, raw_transcript, transcript_array
 
 def get_repeats(items):
     repeats = []
@@ -39,16 +41,25 @@ def main():
     main_page_content = fetch_url_content(urljoin(main_page_url, 'blog'))
     
     if main_page_content:
+        all_blog_posts = []
+
         blog_post_urls = extract_blog_post_urls(main_page_content)
-        print(blog_post_urls)
         for url in blog_post_urls:
             post_page_content = fetch_url_content(url)
             if post_page_content:
-                title, transcript = extract_post_data(post_page_content)
-                all_paragraphs.extend(transcript)
-                print(f"Title: {title}\nTranscript: {transcript}")
+                title, raw_transcript, transcript_array = extract_post_data(post_page_content)
+                all_paragraphs.extend(transcript_array)
+                all_blog_posts.append({
+                    "title": title,
+                    "transcript_array": transcript_array,
+                    "raw_transcript": raw_transcript
+                })
     else:
         print("Failed to fetch main page content")
+
+    with open('data.json', 'w', encoding='utf-8') as f:
+        json.dump(all_blog_posts, f, ensure_ascii=False, indent=4, sort_keys=True)
+
     paragraph_counter = Counter(all_paragraphs)
     top_sayings = get_repeats(paragraph_counter.most_common(30))
 
