@@ -6,8 +6,10 @@ from urllib.parse import urljoin
 import requests
 import requests_cache
 from bs4 import BeautifulSoup
+import nltk
 
 requests_cache.install_cache('my_cache')
+nltk.download('punkt')
 
 all_paragraphs = []
 main_page_url = "https://sarabrewer.com/"
@@ -26,8 +28,9 @@ def fetch_url_content(url):
 def get_post_list_page_urls(main_blog_page_content):
     soup = BeautifulSoup(main_blog_page_content, 'html.parser')
     list_pages = soup.select('a.pag__link')
-    # TODO: Somehow this misses page 13
-    return [urljoin(main_page_url, urljoin('blog', page['href'])) for page in list_pages]
+    page_urls = [urljoin(main_page_url, urljoin('blog', page['href'])) for page in list_pages]
+    page_urls.append(urljoin(main_page_url, urljoin('blog',"?page=13")))
+    return page_urls
 
 
 def extract_blog_post_urls(post_list_page_content):
@@ -45,11 +48,13 @@ def extract_post_data(post_page_content):
         transcript_div = episode_transcript_item.find_next('div')
         transcript_array = [paragraph.text.strip() for paragraph in transcript_div.find_all('p')]
         raw_transcript = '\n'.join(transcript_array)
+        episode_tokens = nltk.word_tokenize(raw_transcript)
+        token_count = len(episode_tokens)
     except AttributeError:
         print(f"{title} | Something went wrong when extracting data from the post.")
         transcript_array = []
         raw_transcript = ''
-    return title, raw_transcript, transcript_array
+    return title, raw_transcript, transcript_array, token_count
 
 
 def extract_episode_number(title):
@@ -75,13 +80,14 @@ def main():
             for url in blog_post_urls:
                 post_page_content = fetch_url_content(url)
                 if post_page_content:
-                    title, raw_transcript, transcript_array = extract_post_data(post_page_content)
-                    all_paragraphs.extend(transcript_array)
-                    if "replay" not in title.lower(): # Don't double count replays
+                    title, raw_transcript, transcript_array, token_count = extract_post_data(post_page_content)
+                    if "replay" not in title.lower() and not any(post["title"] == title for post in all_blog_posts): # Check for duplicates and don't double count replays
+                        all_paragraphs.extend(transcript_array)
                         all_blog_posts.append({
                             "title": title,
                             "transcript_array": transcript_array,
-                            "raw_transcript": raw_transcript
+                            "raw_transcript": raw_transcript,
+                            "token_count": token_count
                         })
     else:
         print("Failed to fetch main page content")
@@ -91,7 +97,7 @@ def main():
         json.dump(sorted_blog_posts, f, ensure_ascii=False, indent=4, sort_keys=True)
 
     paragraph_counter = Counter(all_paragraphs)
-    top_sayings = get_repeats(paragraph_counter.most_common(30))
+    top_sayings = get_repeats(paragraph_counter.most_common(150))
 
 if __name__ == "__main__":
     main()
