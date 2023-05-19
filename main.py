@@ -1,30 +1,40 @@
-import requests_cache
-requests_cache.install_cache('my_cache')
-import requests
-from urllib.parse import urljoin
-from bs4 import BeautifulSoup
-from collections import Counter
 import json
 import re
+from collections import Counter
+from urllib.parse import urljoin
+
+import requests
+import requests_cache
+from bs4 import BeautifulSoup
+
+requests_cache.install_cache('my_cache')
 
 all_paragraphs = []
 main_page_url = "https://sarabrewer.com/"
 
+
 def fetch_url_content(url):
-    response = requests.get(url)
-    if response.status_code == 200:
-        return response.text
-    return None
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+    except Exception as e:
+        print(e)
+        return None
+    return response.text
+
 
 def get_post_list_page_urls(main_blog_page_content):
     soup = BeautifulSoup(main_blog_page_content, 'html.parser')
     list_pages = soup.select('a.pag__link')
+    # TODO: Somehow this misses page 13
     return [urljoin(main_page_url, urljoin('blog', page['href'])) for page in list_pages]
+
 
 def extract_blog_post_urls(post_list_page_content):
     soup = BeautifulSoup(post_list_page_content, 'html.parser')
     blog_posts = soup.select('h2.blog__title a')
     return [urljoin(main_page_url, post['href']) for post in blog_posts]
+
 
 def extract_post_data(post_page_content):
     soup = BeautifulSoup(post_page_content, 'html.parser')
@@ -34,27 +44,27 @@ def extract_post_data(post_page_content):
     try:
         transcript_div = episode_transcript_item.find_next('div')
         transcript_array = [paragraph.text.strip() for paragraph in transcript_div.find_all('p')]
-        raw_transcript = '\n\n'.join(transcript_array)
+        raw_transcript = '\n'.join(transcript_array)
     except AttributeError:
-        print(title)
+        print(f"{title} | Something went wrong when extracting data from the post.")
         transcript_array = []
         raw_transcript = ''
     return title, raw_transcript, transcript_array
 
-def get_repeats(items):
-    repeats = []
-    for item in items:
-        if item[1] > 1 and ": " not in item[0]:
-            repeats.append(item)
-    return repeats
 
 def extract_episode_number(title):
     match = re.search(r'\d+', title)
     return int(match.group()) if match else float('inf')
 
+
+def get_repeats(items):
+    repeats = [(item, count) for item, count in items if count > 1 and ": " not in item]
+    return repeats
+
+
 def main():
     main_page_content = fetch_url_content(urljoin(main_page_url, 'blog'))
-    
+
     if main_page_content:
         post_list_pages = list(set(get_post_list_page_urls(main_page_content)))
         all_blog_posts = []
@@ -67,11 +77,12 @@ def main():
                 if post_page_content:
                     title, raw_transcript, transcript_array = extract_post_data(post_page_content)
                     all_paragraphs.extend(transcript_array)
-                    all_blog_posts.append({
-                        "title": title,
-                        "transcript_array": transcript_array,
-                        "raw_transcript": raw_transcript
-                    })
+                    if "replay" not in title.lower(): # Don't double count replays
+                        all_blog_posts.append({
+                            "title": title,
+                            "transcript_array": transcript_array,
+                            "raw_transcript": raw_transcript
+                        })
     else:
         print("Failed to fetch main page content")
 
