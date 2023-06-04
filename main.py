@@ -50,11 +50,21 @@ def extract_post_data(post_page_content):
         raw_transcript = '\n'.join(transcript_array)
         episode_tokens = nltk.word_tokenize(raw_transcript)
         token_count = len(episode_tokens)
-    except AttributeError:
+        pdf_link = ''
+
+        for link in soup.find_all('a'):
+            href = link.get('href')
+            if href and href.startswith('https://traffic.libsyn.com') and href.endswith('.pdf'):
+                pdf_link = href
+                file_name = href.split('/')[-1]
+                with open(file_name, 'wb') as f:
+                    f.write(requests.get(href).content)
+    except Exception as e:
+        print(e)
         print(f"{title} | Something went wrong when extracting data from the post.")
         transcript_array = []
         raw_transcript = ''
-    return title, raw_transcript, transcript_array, token_count
+    return title, raw_transcript, transcript_array, token_count, pdf_link
 
 
 def extract_episode_number(title):
@@ -80,14 +90,15 @@ def main():
             for url in blog_post_urls:
                 post_page_content = fetch_url_content(url)
                 if post_page_content:
-                    title, raw_transcript, transcript_array, token_count = extract_post_data(post_page_content)
+                    title, raw_transcript, transcript_array, token_count, pdf_link = extract_post_data(post_page_content)
                     if "replay" not in title.lower() and not any(post["title"] == title for post in all_blog_posts): # Check for duplicates and don't double count replays
                         all_paragraphs.extend(transcript_array)
                         all_blog_posts.append({
                             "title": title,
                             "transcript_array": transcript_array,
                             "raw_transcript": raw_transcript,
-                            "token_count": token_count
+                            "token_count": token_count,
+                            "pdf_link": pdf_link,
                         })
     else:
         print("Failed to fetch main page content")
