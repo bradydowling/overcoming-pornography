@@ -13,6 +13,8 @@ nltk.download('punkt')
 
 all_paragraphs = []
 main_page_url = "https://sarabrewer.com/"
+write_to_txt = True
+write_to_pdf = False
 
 
 def fetch_url_content(url):
@@ -42,19 +44,18 @@ def extract_blog_post_urls(post_list_page_content):
 def extract_post_data(post_page_content):
     soup = BeautifulSoup(post_page_content, 'html.parser')
     title = soup.find('h1', class_='blog__title').text.strip()
-    # key_points = soup.find_next_sibling('h2[text="What You\'ll Learn from this Episode:"]').find_all('li').text.strip()
     episode_transcript_item = soup.find(lambda tag: "Full Episode Transcript:" in tag.text)
     try:
         transcript_div = episode_transcript_item.find_next('div')
-        transcript_array = [paragraph.text.strip() for paragraph in transcript_div.find_all('p')]
-        raw_transcript = '\n'.join(transcript_array)
+        transcript_array = [paragraph.text.strip() for paragraph in transcript_div.find_all('p') if len(paragraph.text.strip()) > 0]
+        raw_transcript = '\n\n'.join(transcript_array)
         episode_tokens = nltk.word_tokenize(raw_transcript)
         token_count = len(episode_tokens)
         pdf_link = ''
 
         for link in soup.find_all('a'):
             href = link.get('href')
-            if href and href.startswith('https://traffic.libsyn.com') and href.endswith('.pdf'):
+            if write_to_pdf and href and href.startswith('https://traffic.libsyn.com') and href.endswith('.pdf'):
                 pdf_link = href
                 file_name = href.split('/')[-1]
                 with open(file_name, 'wb') as f:
@@ -70,6 +71,13 @@ def extract_post_data(post_page_content):
 def extract_episode_number(title):
     match = re.search(r'\d+', title)
     return int(match.group()) if match else float('inf')
+
+
+def write_transcript_to_file(title, transcript):
+    filename = 'data/' + title + '.txt'
+    with open(filename, 'w') as f:
+        f.write(transcript)
+    print('Transcript written to', filename)
 
 
 def get_repeats(items):
@@ -100,6 +108,8 @@ def main():
                             "token_count": token_count,
                             "pdf_link": pdf_link,
                         })
+                        if write_to_txt:
+                            write_transcript_to_file(title, raw_transcript)
     else:
         print("Failed to fetch main page content")
 
