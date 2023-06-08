@@ -21,3 +21,9 @@ Save additional dependencies:
 ```
 pip freeze > requirements.txt
 ```
+
+### Run it
+
+```
+python main.py
+```
